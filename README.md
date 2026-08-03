@@ -207,6 +207,38 @@ foreach ($kv in $junctions.GetEnumerator()) {
 (Names above are the English defaults; on a localized Windows install use the
 actual folder names present on disk — check with `Get-ChildItem $base -Force`.)
 
+### 2.2b Legacy junctions nested inside Documents
+
+The same problem also shows up **one level deeper**: on localized (non-English)
+installs, Windows creates additional legacy-name junctions *inside* `Documents`
+itself — e.g. German `Eigene Bilder` → `Pictures`, `Eigene Musik` → `Music`,
+`Eigene Videos` → `Videos`. These are easy to miss because 2.2 above only checks
+the profile root, and `fsutil reparsepoint query` has to be run against each one
+individually to notice.
+
+**Symptom when stale:** the junction resolves to a dead path (`Test-Path` on the
+target returns `$false`). Cosmetically harmless — Windows itself doesn't read
+these for anything (see [Why this isn't "just a folder rename"](#why-this-isnt-just-a-folder-rename))
+— but confusing to stumble on later, and worth fixing in the same pass.
+
+```powershell
+$docBase = "C:\Users\jane.doe\Documents"
+$docJunctions = @{
+  "Eigene Bilder" = "..\Pictures"
+  "Eigene Musik"  = "..\Music"
+  "Eigene Videos" = "..\Videos"
+}
+foreach ($kv in $docJunctions.GetEnumerator()) {
+    $linkPath = Join-Path $docBase $kv.Key
+    if (Test-Path $linkPath) {
+        $targetPath = Resolve-Path (Join-Path $docBase $kv.Value)
+        Remove-Item $linkPath -Force
+        New-Item -ItemType Junction -Path $linkPath -Target $targetPath | Out-Null
+        Write-Output "Fixed: $($kv.Key) -> $targetPath"
+    }
+}
+```
+
 ### 2.3 User-level environment variables
 
 ```powershell
@@ -312,6 +344,25 @@ kill another account's process, and that's expected, not a bug:
 $p = Get-CimInstance Win32_Process -Filter "ProcessId = <PID>"
 Invoke-CimMethod -InputObject $p -MethodName GetOwner
 ```
+
+### Extra snag: `HKLM` Run-key fixes need an elevated PowerShell
+
+Autostart entries live in either `HKCU:\...\Run` (per-user, no elevation needed)
+or `HKLM:\...\Run` (machine-wide, requires **Administrator**). Fixing or removing
+an `HKLM` entry from a non-elevated PowerShell session **fails silently** if
+you're using `-ErrorAction SilentlyContinue` — the command appears to succeed
+but the value is untouched.
+
+Check which hive an entry actually lives in before assuming a fix worked:
+
+```powershell
+Get-CimInstance Win32_StartupCommand | Select-Object Name, Location
+# Location starting with HKLM\... needs an elevated ("Run as Administrator") session
+```
+
+If you don't have or don't want admin rights for a one-off fix, it's safe to
+leave the entry — it's cosmetic (only affects whether that program autostarts),
+not a functional blocker for the rename itself.
 
 ---
 
