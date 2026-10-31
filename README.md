@@ -1,78 +1,51 @@
-# Renaming a Windows User Profile Folder — A Practical Guide
+# Einen Windows-Benutzerprofilordner umbenennen — ein Praxisleitfaden
 
-A field-tested, step-by-step guide to renaming an existing Windows user profile
-folder (`C:\Users\<name>`) — including every problem we actually ran into, why it
-happened, and exactly how it was fixed. Written up after doing this twice on the
-same Windows 11 Pro machine.
+**Deutsch** · [English](README.en.md)
 
-> ⚠️ **Disclaimer:** Renaming a user profile folder is **not officially supported
-> by Microsoft**. This guide worked reliably on a fresh install with a light
-> software footprint. Back up (or take a System Restore Point) before you start,
-> read the whole guide once before running anything, and understand that on an
-> older, heavily-used machine your mileage may vary (see [Why this is harder on
-> an old machine](#why-this-is-harder-on-an-old-machine) at the end).
+Ein praxiserprobter Schritt-für-Schritt-Leitfaden zum Umbenennen eines bestehenden Windows-Benutzerprofilordners (<code>C:\Users\&lt;name&gt;</code>) — einschliesslich aller Probleme, auf die wir tatsächlich gestossen sind, ihrer Ursachen und der genauen Lösungen. Entstanden ist dieser Leitfaden, nachdem wir den Vorgang auf demselben Rechner mit Windows 11 Pro zweimal durchgeführt hatten.
+
+> ⚠️ **Haftungsausschluss:** Das Umbenennen eines Benutzerprofilordners wird von **Microsoft offiziell nicht unterstützt**. Dieser Leitfaden funktionierte bei einer frischen Installation mit wenig installierter Software zuverlässig. Erstelle vor Beginn eine Sicherung oder einen Systemwiederherstellungspunkt, lies den gesamten Leitfaden einmal vollständig durch, bevor du Befehle ausführst, und beachte, dass die Ergebnisse auf einem älteren, intensiv genutzten Rechner abweichen können. Weitere Hinweise findest du am Ende unter [Warum das auf einem älteren System schwieriger ist](#warum-das-auf-einem-älteren-system-schwieriger-ist).
 >
-> **Recommendation: do this as early as possible — ideally immediately after
-> Windows setup, before installing any software.** The number of places that
-> cache the old profile path is small and fully known on a clean install; every
-> app you install afterward is a potential extra place to find and fix.
+> **Empfehlung: Führe diese Änderung möglichst früh durch — idealerweise unmittelbar nach der Einrichtung von Windows und bevor du weitere Software installierst.** Bei einer sauberen Installation gibt es nur wenige, vollständig bekannte Stellen, an denen der alte Profilpfad zwischengespeichert wird. Jede später installierte Anwendung kann eine weitere Stelle erzeugen, die gefunden und korrigiert werden muss.
 
 ---
 
-## Situation & Goal
+## Ausgangslage und Ziel
 
-**Situation:** A Windows local account was originally created with a placeholder
-profile folder name (e.g. `C:\Users\jdoe`), and we wanted it renamed to something
-meaningful (e.g. `C:\Users\jane.doe`) — without recreating the account, losing
-data, or reinstalling software.
+**Ausgangslage:** Ein lokales Windows-Konto wurde ursprünglich mit einem provisorischen Namen für den Profilordner angelegt, beispielsweise <code>C:\Users\jdoe</code>. Dieser Ordner sollte einen aussagekräftigen Namen erhalten, beispielsweise <code>C:\Users\jane.doe</code> — ohne das Konto neu anzulegen, Daten zu verlieren oder Software neu zu installieren.
 
-**Goal:** `C:\Users\jdoe` → `C:\Users\jane.doe`, with the account fully functional
-afterward: correct Desktop/Documents/Downloads locations, no broken system
-dialogs, no broken shortcuts, and no need to touch installed applications beyond
-fixing a couple of stale path references.
+**Ziel:** <code>C:\Users\jdoe</code> → <code>C:\Users\jane.doe</code>. Anschliessend soll das Konto vollständig funktionieren: Desktop, Dokumente und Downloads müssen auf die richtigen Speicherorte zeigen, Systemdialoge und Verknüpfungen dürfen nicht beschädigt sein und installierte Anwendungen sollen — abgesehen von einzelnen veralteten Pfadverweisen — nicht angepasst werden müssen.
 
-The examples below use `jdoe` (old name) and `jane.doe` (new name) — substitute
-your own values throughout.
+In den folgenden Beispielen steht <code>jdoe</code> für den alten und <code>jane.doe</code> für den neuen Namen. Ersetze beide Werte durch deine eigenen Angaben.
 
 ---
 
-## Why this isn't "just a folder rename"
+## Warum das nicht „nur ein Umbenennen des Ordners“ ist
 
-Renaming the folder itself takes one command. The actual work is that Windows and
-many applications **cache the absolute profile path** in several places, and none
-of those get updated automatically when you rename the folder:
+Das eigentliche Umbenennen benötigt nur einen Befehl. Der entscheidende Aufwand entsteht dadurch, dass Windows und zahlreiche Anwendungen den **absoluten Profilpfad** an mehreren Stellen zwischenspeichern. Keine dieser Stellen wird beim Umbenennen des Ordners automatisch aktualisiert:
 
-1. `HKLM\...\ProfileList\<SID>\ProfileImagePath` — tells Windows which folder
-   belongs to which account (system-wide, admin-only).
-2. `HKCU\...\Explorer\Shell Folders` and `User Shell Folders` — where Desktop,
-   Documents, Downloads etc. actually live (per-user).
-3. A set of legacy NTFS **junctions** inside the profile folder, kept for
-   backward compatibility with old software (per-user, on disk).
-4. `HKCU:\Environment` — user-level environment variables like `PATH` or
-   app-specific variables that happened to contain the old absolute path.
-5. Any **third-party application's own registry entries or config files** that
-   independently cached the old path (uninstaller entries, install-path keys,
-   shell extensions, autostart entries, etc.).
+1. <code>HKLM\...\ProfileList\&lt;SID&gt;\ProfileImagePath</code> — legt systemweit fest, welcher Ordner zu welchem Konto gehört; Änderungen sind nur mit Administratorrechten möglich.
+2. <code>HKCU\...\Explorer\Shell Folders</code> und <code>User Shell Folders</code> — enthalten die tatsächlichen Speicherorte von Desktop, Dokumenten, Downloads und weiteren Ordnern; sie gelten pro Benutzer.
+3. Mehrere ältere NTFS-**Junctions** im Profilordner dienen der Abwärtskompatibilität mit älterer Software.
+4. <code>HKCU:\Environment</code> — enthält benutzerbezogene Umgebungsvariablen wie <code>PATH</code> oder anwendungsspezifische Variablen, die den alten absoluten Pfad enthalten können.
+5. **Eigene Registry-Einträge oder Konfigurationsdateien von Drittanbieter-Anwendungen**, in denen der alte Pfad unabhängig gespeichert wurde, etwa Deinstallations-, Installations-, Shell-Erweiterungs- oder Autostart-Einträge.
 
-The rest of this guide fixes each of these, in order, with the exact commands and
-the exact symptoms that show up when a step is skipped.
+Der restliche Leitfaden korrigiert diese Stellen der Reihe nach. Er nennt die genauen Befehle und beschreibt die Symptome, die auftreten, wenn ein Schritt fehlt.
 
 ---
 
-## Part 1 — Rename the folder + fix `ProfileImagePath`
+## Teil 1 — Ordner umbenennen und <code>ProfileImagePath</code> korrigieren
 
-Must be done **from a different account** (the target account has to be fully
-logged out — not just switched via Fast User Switching, or the folder stays
-locked) and requires **administrator rights**.
+Dieser Teil muss **aus einem anderen Konto heraus** ausgeführt werden. Das Zielkonto muss vollständig abgemeldet sein; ein blosser Benutzerwechsel über die schnelle Benutzerumschaltung genügt nicht, weil der Ordner sonst gesperrt bleibt. Ausserdem sind **Administratorrechte** erforderlich.
 
-```powershell
-# 1. Confirm the folder exists and isn't locked
+~~~powershell
+# 1. Prüfen, ob der Ordner vorhanden und nicht gesperrt ist
 Test-Path "C:\Users\jdoe"
 
-# 2. Rename it
+# 2. Ordner umbenennen
 Rename-Item -Path "C:\Users\jdoe" -NewName "jane.doe"
 
-# 3. Find the account's SID
+# 3. SID des Kontos ermitteln
 Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList" | ForEach-Object {
     [PSCustomObject]@{
         SID  = $_.PSChildName
@@ -80,60 +53,46 @@ Get-ChildItem "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList" |
     }
 }
 
-# 4. Point ProfileImagePath at the new folder
-$sid = "S-1-5-21-XXXXXXXXXX-XXXXXXXXXX-XXXXXXXXXX-1001"   # from step 3
+# 4. ProfileImagePath auf den neuen Ordner setzen
+$sid = "S-1-5-21-XXXXXXXXXX-XXXXXXXXXX-XXXXXXXXXX-1001"   # aus Schritt 3
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" `
     -Name "ProfileImagePath" -Value "C:\Users\jane.doe"
 
-# 5. Verify
+# 5. Ergebnis überprüfen
 Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" |
     Select-Object ProfileImagePath
-```
+~~~
 
-### Problem we hit: orphaned profile with a random suffix (`name_xxxxxxx`)
+### Problem bei uns: verwaistes Profil mit zufälligem Suffix (<code>name_xxxxxxx</code>)
 
-On one of our two accounts, step 2 was done but step 4 wasn't completed before the
-user logged back in. Result: Windows didn't recognize the renamed folder as
-belonging to that SID, and instead created a **brand-new profile** with a random
-suffix appended — `jdoe_a1b2c3d4` — leaving the intended rename half-finished.
+Bei einem unserer beiden Konten war Schritt 2 durchgeführt worden, Schritt 4 jedoch noch nicht abgeschlossen, als sich der Benutzer erneut anmeldete. Windows erkannte den umbenannten Ordner deshalb nicht als das zu dieser SID gehörende Profil. Stattdessen legte es ein **neues Profil mit einem zufälligen Suffix** an — beispielsweise <code>jdoe_a1b2c3d4</code> — und liess die beabsichtigte Umbenennung unvollständig zurück.
 
-**How to recognize it:** any folder under `C:\Users` with a random alphanumeric
-suffix is a strong signal that Windows created a fallback profile because
-`ProfileImagePath` didn't match an existing, claimed folder.
+**So erkennst du das Problem:** Ein Ordner unter <code>C:\Users</code> mit einem zufälligen alphanumerischen Suffix ist ein deutlicher Hinweis darauf, dass Windows ein Ausweichprofil erstellt hat, weil <code>ProfileImagePath</code> nicht zu einem vorhandenen und zugeordneten Ordner passte.
 
-**How to fix it:** before touching anything, check whether real user data (recent
-timestamps, populated `Desktop`/`Documents`/`AppData`) lives in the suffixed
-folder — that's usually where the account actually ended up living day-to-day.
-Then simply repeat steps 1–5 above, targeting the suffixed folder as the "old"
-name and your intended clean name as the "new" one.
+**So wird es behoben:** Prüfe zuerst, in welchem Ordner sich die tatsächlichen Benutzerdaten befinden. Aktuelle Zeitstempel sowie gefüllte Ordner wie <code>Desktop</code>, <code>Documents</code> und <code>AppData</code> zeigen normalerweise, welches Profil im Alltag verwendet wurde. Wiederhole danach die Schritte 1 bis 5, wobei der Ordner mit Suffix als „alter“ Name und der gewünschte bereinigte Name als „neuer“ Name verwendet wird.
 
-```powershell
+~~~powershell
 Rename-Item -Path "C:\Users\jdoe_a1b2c3d4" -NewName "jane.doe"
 Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$sid" `
     -Name "ProfileImagePath" -Value "C:\Users\jane.doe"
-```
+~~~
 
 ---
 
-## Part 2 — Re-link every reference (run *inside* the renamed account)
+## Teil 2 — Alle Verweise neu verknüpfen (im umbenannten Konto ausführen)
 
-Everything from here on is `HKCU`, so it only affects the currently logged-in
-user — do this logged into the renamed account itself.
+Ab hier betreffen alle Änderungen <code>HKCU</code> und damit nur den aktuell angemeldeten Benutzer. Melde dich deshalb im umbenannten Konto selbst an.
 
-### 2.1 Shell Folders (Desktop, Documents, Downloads, ...)
+### 2.1 Shell-Ordner (Desktop, Dokumente, Downloads, ...)
 
-There are **two** parallel registry keys:
+Es gibt **zwei** parallele Registry-Schlüssel:
 
-- `HKCU:\...\Explorer\User Shell Folders` — the key Windows actually resolves
-  paths from.
-- `HKCU:\...\Explorer\Shell Folders` — a **cached copy** of the same paths that
-  does **not** get refreshed automatically when the profile is renamed.
+- <code>HKCU:\...\Explorer\User Shell Folders</code> — der Schlüssel, aus dem Windows die Pfade tatsächlich auflöst.
+- <code>HKCU:\...\Explorer\Shell Folders</code> — eine **zwischengespeicherte Kopie** derselben Pfade, die beim Umbenennen des Profils **nicht** automatisch aktualisiert wird.
 
-**Symptom when this is stale:** components that read the cached copy directly
-break. In our case, the Windows **Settings app failed to launch** until this was
-fixed.
+**Symptom bei einem veralteten Eintrag:** Komponenten, die direkt auf diese Kopie zugreifen, funktionieren nicht mehr. In unserem Fall liess sich die Windows-App **Einstellungen nicht starten**, bis die Pfade korrigiert waren.
 
-```powershell
+~~~powershell
 $old = "C:\Users\jdoe"
 $new = "C:\Users\jane.doe"
 
@@ -149,35 +108,24 @@ foreach ($keyPath in @(
         Write-Output "Fixed [$($_.Name)]: $($_.Value) -> $newValue"
       }
 }
-```
+~~~
 
-On our system this touched ~28 values: Desktop, Documents, Downloads, Music,
-Pictures, Videos, Favorites, AppData, Local AppData, Cache, Cookies, History,
-Start Menu, Programs, Startup, Templates, NetHood, PrintHood, Contacts, Links,
-Saved Games, Searches, RoamingTiles, Libraries, CD Burning, LocalLow,
-Administrative Tools.
+Auf unserem System wurden dadurch ungefähr 28 Werte angepasst: Desktop, Documents, Downloads, Music, Pictures, Videos, Favorites, AppData, Local AppData, Cache, Cookies, History, Start Menu, Programs, Startup, Templates, NetHood, PrintHood, Contacts, Links, Saved Games, Searches, RoamingTiles, Libraries, CD Burning, LocalLow und Administrative Tools.
 
-### 2.2 Legacy compatibility junctions
+### 2.2 Ältere Kompatibilitäts-Junctions
 
-Windows keeps a set of NTFS **junctions** in the profile root for old software
-that expects legacy folder names (localized on non-English systems, e.g. German
-`Anwendungsdaten` for `AppData\Roaming`). Their reparse-point target is stored as
-a **literal absolute path** and is not rewritten by a plain folder rename.
+Windows bewahrt im Stammverzeichnis des Profils mehrere NTFS-**Junctions** für ältere Software auf. Diese erwartet historische Ordnernamen, die auf nicht englischen Systemen lokalisiert sein können, beispielsweise <code>Anwendungsdaten</code> für <code>AppData\Roaming</code>. Das Ziel eines solchen Reparse Points ist als **wörtlicher absoluter Pfad** gespeichert und wird beim gewöhnlichen Umbenennen eines Ordners nicht angepasst.
 
-**Detect** (don't rely on `Get-Item.Target` — it's unreliable for this; use
-`fsutil` to see the real stored value):
+**Erkennen:** Verlasse dich dafür nicht auf <code>Get-Item.Target</code>, da diese Angabe unzuverlässig sein kann. Mit <code>fsutil</code> wird der tatsächlich gespeicherte Wert angezeigt.
 
-```powershell
+~~~powershell
 fsutil reparsepoint query "C:\Users\jane.doe\Application Data"
-# Substitute Name may still show: \??\C:\Users\jdoe\AppData\Roaming
-```
+# Substitute Name kann weiterhin zeigen: \??\C:\Users\jdoe\AppData\Roaming
+~~~
 
-**Fix** — delete and recreate each junction with the correct target. This does
-**not** require admin rights (unlike symlinks), only write access to the profile
-folder, and `Remove-Item` on a junction removes only the link, never the real
-data behind it:
+**Korrigieren:** Lösche jede Junction und erstelle sie mit dem richtigen Ziel erneut. Anders als symbolische Verknüpfungen erfordert dies keine Administratorrechte, sondern lediglich Schreibzugriff auf den Profilordner. <code>Remove-Item</code> entfernt bei einer Junction nur die Verknüpfung und niemals die dahinterliegenden echten Daten.
 
-```powershell
+~~~powershell
 $base = "C:\Users\jane.doe"
 $junctions = @{
   "Application Data"  = "AppData\Roaming"
@@ -202,26 +150,17 @@ foreach ($kv in $junctions.GetEnumerator()) {
         Write-Output "SKIP (target missing): $($kv.Key) -> $targetPath"
     }
 }
-```
+~~~
 
-(Names above are the English defaults; on a localized Windows install use the
-actual folder names present on disk — check with `Get-ChildItem $base -Force`.)
+Die Namen im Beispiel entsprechen den englischen Standardnamen. Verwende auf einem lokalisierten Windows-System die tatsächlich vorhandenen Ordnernamen. Diese lassen sich mit <code>Get-ChildItem $base -Force</code> anzeigen.
 
-### 2.2b Legacy junctions nested inside Documents
+### 2.2b Ältere Junctions innerhalb von „Documents“
 
-The same problem also shows up **one level deeper**: on localized (non-English)
-installs, Windows creates additional legacy-name junctions *inside* `Documents`
-itself — e.g. German `Eigene Bilder` → `Pictures`, `Eigene Musik` → `Music`,
-`Eigene Videos` → `Videos`. These are easy to miss because 2.2 above only checks
-the profile root, and `fsutil reparsepoint query` has to be run against each one
-individually to notice.
+Dasselbe Problem tritt **eine Ebene tiefer** auf: Auf lokalisierten, nicht englischen Installationen legt Windows innerhalb von <code>Documents</code> weitere Junctions mit historischen Namen an, beispielsweise <code>Eigene Bilder</code> → <code>Pictures</code>, <code>Eigene Musik</code> → <code>Music</code> und <code>Eigene Videos</code> → <code>Videos</code>. Diese Stellen werden leicht übersehen, weil Abschnitt 2.2 nur das Stammverzeichnis des Profils kontrolliert und <code>fsutil reparsepoint query</code> für jede Junction einzeln ausgeführt werden muss.
 
-**Symptom when stale:** the junction resolves to a dead path (`Test-Path` on the
-target returns `$false`). Cosmetically harmless — Windows itself doesn't read
-these for anything (see [Why this isn't "just a folder rename"](#why-this-isnt-just-a-folder-rename))
-— but confusing to stumble on later, and worth fixing in the same pass.
+**Symptom bei einem veralteten Ziel:** Die Junction verweist auf einen nicht mehr vorhandenen Pfad; <code>Test-Path</code> liefert für das Ziel <code>$false</code>. Dies ist kosmetisch harmlos, weil Windows selbst diese Junctions nicht benötigt. Wie im Abschnitt [Warum das nicht „nur ein Umbenennen des Ordners“ ist](#warum-das-nicht-nur-ein-umbenennen-des-ordners-ist) beschrieben, können solche fehlerhaften Verweise später dennoch verwirren und sollten deshalb im selben Durchgang korrigiert werden.
 
-```powershell
+~~~powershell
 $docBase = "C:\Users\jane.doe\Documents"
 $docJunctions = @{
   "Eigene Bilder" = "..\Pictures"
@@ -237,11 +176,11 @@ foreach ($kv in $docJunctions.GetEnumerator()) {
         Write-Output "Fixed: $($kv.Key) -> $targetPath"
     }
 }
-```
+~~~
 
-### 2.3 User-level environment variables
+### 2.3 Umgebungsvariablen auf Benutzerebene
 
-```powershell
+~~~powershell
 $envKey = "HKCU:\Environment"
 $old = "C:\Users\jdoe"
 $new = "C:\Users\jane.doe"
@@ -252,63 +191,53 @@ $new = "C:\Users\jane.doe"
     Set-ItemProperty -Path $envKey -Name $_.Name -Value $newValue
     Write-Output "Fixed [$($_.Name)]: $($_.Value) -> $newValue"
   }
-```
+~~~
 
-In our case this caught two things: a stale entry in `Path` (added by a
-previously-installed app) and a stale `OneDrive` variable.
+In unserem Fall wurden dabei zwei veraltete Einträge gefunden: ein von einer früher installierten Anwendung ergänzter Wert in <code>Path</code> und eine veraltete <code>OneDrive</code>-Variable.
 
-### 2.4 Final sweep
+### 2.4 Abschliessende Suche
 
-```powershell
+~~~powershell
 $leftover = @()
 $leftover += (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders").PSObject.Properties |
   Where-Object { $_.Value -is [string] -and $_.Value -match "jdoe" }
 $leftover += (Get-ItemProperty "HKCU:\Environment").PSObject.Properties |
   Where-Object { $_.Value -is [string] -and $_.Value -match "jdoe" }
 if ($leftover.Count -eq 0) { "Clean." } else { $leftover }
-```
+~~~
 
-### 2.5 Sanity check
+### 2.5 Plausibilitätsprüfung
 
-```powershell
+~~~powershell
 Start-Process "ms-settings:"
 Get-Process | Where-Object { $_.ProcessName -match "SystemSettings" }
-```
+~~~
 
-If the Settings app opens and stays running, the core Shell Folder references are
-correctly wired.
+Wenn die Einstellungen-App geöffnet wird und aktiv bleibt, sind die zentralen Verweise auf die Shell-Ordner richtig verknüpft.
 
 ---
 
-## Case study: fixing a third-party app with its own cached path (OneDrive)
+## Fallstudie: Eine Drittanbieter-Anwendung mit eigenem zwischengespeichertem Pfad reparieren (OneDrive)
 
-The same pattern — *find every place the old path is cached, then fix it* —
-applies to individual installed applications too, not just Windows itself. We
-hit this trying to uninstall OneDrive after the rename: **uninstalling failed**
-because the uninstaller's own registry entry pointed at a file that no longer
-existed.
+Dasselbe Muster — *jede Stelle mit dem alten zwischengespeicherten Pfad finden und korrigieren* — gilt auch für einzelne installierte Anwendungen und nicht nur für Windows selbst. Wir stiessen darauf, als wir OneDrive nach der Umbenennung deinstallieren wollten: **Die Deinstallation schlug fehl**, weil der Registry-Eintrag des Deinstallationsprogramms auf eine nicht mehr vorhandene Datei verwies.
 
-**Where OneDrive had cached the old path (all `HKCU`):**
+**An diesen Stellen hatte OneDrive den alten Pfad gespeichert; alle liegen unter <code>HKCU</code>:**
 
-| Key | Value(s) | Effect if stale |
+| Schlüssel | Wert(e) | Auswirkung eines veralteten Eintrags |
 |---|---|---|
-| `HKCU:\Software\Microsoft\OneDrive\<version>` | `InstallPath`, `InstallPaths` | Cosmetic / internal bookkeeping |
-| `HKCU:\Software\Classes\CLSID\{<OneDrive-shell-extension-GUID>}` | `(default)` | Broken icon in Explorer sidebar |
-| `HKCU:\...\Uninstall\OneDriveSetup.exe` | `UninstallString`, `DisplayIcon` | **Uninstall fails outright** — this was the actual root cause |
-| `HKCU:\...\Run` | `OneDrive` | App silently fails to autostart at login |
+| <code>HKCU:\Software\Microsoft\OneDrive\&lt;version&gt;</code> | <code>InstallPath</code>, <code>InstallPaths</code> | Kosmetik / interne Verwaltung |
+| <code>HKCU:\Software\Classes\CLSID\{&lt;OneDrive-shell-extension-GUID&gt;}</code> | <code>(default)</code> | Fehlerhaftes Symbol in der Seitenleiste des Explorers |
+| <code>HKCU:\...\Uninstall\OneDriveSetup.exe</code> | <code>UninstallString</code>, <code>DisplayIcon</code> | **Deinstallation schlägt vollständig fehl** — dies war die eigentliche Ursache |
+| <code>HKCU:\...\Run</code> | <code>OneDrive</code> | Anwendung startet bei der Anmeldung nicht automatisch, ohne eine Meldung anzuzeigen |
 
-**General approach for any app in this situation:**
+**Allgemeines Vorgehen bei jeder Anwendung in dieser Situation:**
 
-1. Search the app's known registry tree recursively for the old path string.
-2. Specifically check `HKCU:\...\CurrentVersion\Uninstall\<AppName>` —
-   this is the entry the uninstaller/Settings-app "Uninstall" button actually
-   reads, and a stale `UninstallString` here is the classic cause of "won't
-   uninstall" complaints.
-3. Check the `Run` key for a stale autostart path.
-4. Fix each value, verify the target file the corrected path now points at
-   actually exists, then run the (now-correct) uninstaller.
+1. Durchsuche den bekannten Registry-Baum der Anwendung rekursiv nach dem alten Pfad.
+2. Kontrolliere insbesondere <code>HKCU:\...\CurrentVersion\Uninstall\&lt;AppName&gt;</code>. Diesen Eintrag lesen das Deinstallationsprogramm und die Schaltfläche „Deinstallieren“ in den Windows-Einstellungen. Ein veralteter <code>UninstallString</code> ist eine typische Ursache dafür, dass sich eine Anwendung nicht deinstallieren lässt.
+3. Kontrolliere den Schlüssel <code>Run</code> auf einen veralteten Autostartpfad.
+4. Korrigiere alle Werte, prüfe, ob die Datei am neuen Zielpfad wirklich vorhanden ist, und führe danach das nun korrekt referenzierte Deinstallationsprogramm aus.
 
-```powershell
+~~~powershell
 $new = "C:\Users\jane.doe"
 
 Set-ItemProperty "HKCU:\Software\Microsoft\OneDrive\<version>" -Name "InstallPath" `
@@ -320,77 +249,58 @@ Set-ItemProperty $unKey -Name "UninstallString" `
 
 $uninstaller = "$new\AppData\Local\Microsoft\OneDrive\<version>\OneDriveSetup.exe"
 Start-Process -FilePath $uninstaller -ArgumentList "/uninstall" -Wait
-```
+~~~
 
-### Extra snag: leftover process / locked install folder
+### Zusätzliche Hürde: verbliebener Prozess oder gesperrter Installationsordner
 
-After uninstalling, the process was still running and the install folder
-couldn't be removed immediately. Windows allows "unlinking" files that are still
-open (delete-on-close), so the folder can disappear from `Test-Path` before the
-process has actually exited — give it a moment, then confirm:
+Nach der Deinstallation lief der Prozess noch weiter, weshalb sich der Installationsordner nicht sofort entfernen liess. Windows kann noch geöffnete Dateien zum Löschen vormerken. Dadurch kann der Ordner für <code>Test-Path</code> bereits verschwunden sein, bevor der Prozess tatsächlich beendet wurde. Warte kurz und kontrolliere danach erneut:
 
-```powershell
+~~~powershell
 Stop-Process -Name OneDrive -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Remove-Item "$new\AppData\Local\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-```
+~~~
 
-**If `Stop-Process -Force` still throws "Access denied":** check whether the
-process actually belongs to a *different* logged-in account (e.g. another user
-still active in the background via Fast User Switching). You have no rights to
-kill another account's process, and that's expected, not a bug:
+**Falls <code>Stop-Process -Force</code> weiterhin „Access denied“ meldet:** Prüfe, ob der Prozess zu einem anderen angemeldeten Konto gehört, beispielsweise zu einem weiteren Benutzer, der durch die schnelle Benutzerumschaltung noch im Hintergrund aktiv ist. Prozesse eines anderen Kontos können erwartungsgemäss nicht beendet werden; dies ist kein Fehler.
 
-```powershell
+~~~powershell
 $p = Get-CimInstance Win32_Process -Filter "ProcessId = <PID>"
 Invoke-CimMethod -InputObject $p -MethodName GetOwner
-```
+~~~
 
-### Extra snag: `HKLM` Run-key fixes need an elevated PowerShell
+### Zusätzliche Hürde: Änderungen am <code>HKLM</code>-Run-Schlüssel erfordern eine PowerShell mit erhöhten Rechten
 
-Autostart entries live in either `HKCU:\...\Run` (per-user, no elevation needed)
-or `HKLM:\...\Run` (machine-wide, requires **Administrator**). Fixing or removing
-an `HKLM` entry from a non-elevated PowerShell session **fails silently** if
-you're using `-ErrorAction SilentlyContinue` — the command appears to succeed
-but the value is untouched.
+Autostart-Einträge befinden sich entweder unter <code>HKCU:\...\Run</code> — pro Benutzer und ohne erhöhte Rechte veränderbar — oder unter <code>HKLM:\...\Run</code> — systemweit und nur mit **Administratorrechten** veränderbar. Wird ein <code>HKLM</code>-Eintrag in einer nicht erhöhten PowerShell-Sitzung mit <code>-ErrorAction SilentlyContinue</code> geändert oder entfernt, kann der Fehler unbemerkt bleiben: Der Befehl scheint erfolgreich zu sein, der Wert bleibt jedoch unverändert.
 
-Check which hive an entry actually lives in before assuming a fix worked:
+Prüfe deshalb, in welchem Hive sich ein Eintrag tatsächlich befindet, bevor du davon ausgehst, dass die Korrektur funktioniert hat:
 
-```powershell
+~~~powershell
 Get-CimInstance Win32_StartupCommand | Select-Object Name, Location
-# Location starting with HKLM\... needs an elevated ("Run as Administrator") session
-```
+# Ein mit HKLM\... beginnender Speicherort benötigt eine erhöhte Sitzung
+# („Als Administrator ausführen“).
+~~~
 
-If you don't have or don't want admin rights for a one-off fix, it's safe to
-leave the entry — it's cosmetic (only affects whether that program autostarts),
-not a functional blocker for the rename itself.
-
----
-
-## Checklist
-
-- [ ] Target account fully logged out (not just switched)
-- [ ] Folder renamed (from an admin session)
-- [ ] `ProfileImagePath` (HKLM) updated
-- [ ] No random-suffix orphan folder appeared on next login
-- [ ] `Shell Folders` **and** `User Shell Folders` (HKCU) fixed
-- [ ] All legacy junctions fixed (verify with `fsutil reparsepoint query`)
-- [ ] `HKCU:\Environment` fixed (`Path` and any app-specific variables)
-- [ ] Settings app / core Windows dialogs open without error
-- [ ] Final sweep over Shell Folders + Environment returns no matches
-- [ ] Individually check any third-party app that manages its own sync/cache
-      folder (cloud storage clients, IDEs with "recent projects", backup tools)
+Wenn für eine einmalige Korrektur keine Administratorrechte zur Verfügung stehen oder verwendet werden sollen, kann der Eintrag bestehen bleiben. Er ist nur kosmetisch, weil er lediglich beeinflusst, ob das Programm automatisch startet; die Profilumbenennung selbst wird dadurch nicht blockiert.
 
 ---
 
-## Why this is harder on an old machine
+## Checkliste
 
-On a freshly installed system, the list of places caching the old profile path is
-**small and fully enumerable** — exactly what's documented above. On a machine
-that's been in use for a while, you get an open-ended long tail on top of that:
-IDE recent-project lists, browser settings, other cloud-sync clients, shortcuts
-with hardcoded absolute targets, the search index, scheduled tasks, and any
-other app that happened to cache an absolute path somewhere. The *technique*
-doesn't change — it's still "find the cached reference, rewrite it" — but
-proving you found *all* of them stops being realistic. That's the actual reason
-Microsoft doesn't support this and most guides recommend creating a new account
-and migrating data instead of renaming in place.
+- [ ] Zielkonto vollständig abgemeldet, nicht nur gewechselt
+- [ ] Ordner aus einer Administratorsitzung heraus umbenannt
+- [ ] <code>ProfileImagePath</code> unter <code>HKLM</code> aktualisiert
+- [ ] Nach der nächsten Anmeldung ist kein verwaister Ordner mit Zufallssuffix entstanden
+- [ ] <code>Shell Folders</code> **und** <code>User Shell Folders</code> unter <code>HKCU</code> korrigiert
+- [ ] Alle älteren Junctions korrigiert und mit <code>fsutil reparsepoint query</code> überprüft
+- [ ] <code>HKCU:\Environment</code> korrigiert, einschliesslich <code>Path</code> und anwendungsspezifischer Variablen
+- [ ] Einstellungen-App und zentrale Windows-Dialoge öffnen ohne Fehler
+- [ ] Die abschliessende Suche in Shell Folders und Environment findet keine alten Verweise
+- [ ] Drittanbieter-Anwendungen mit eigenen Synchronisations- oder Cache-Ordnern einzeln geprüft, beispielsweise Cloud-Speicher-Clients, Entwicklungsumgebungen mit zuletzt geöffneten Projekten und Sicherungsprogramme
+
+---
+
+## Warum das auf einem älteren System schwieriger ist
+
+Auf einem frisch installierten System ist die Zahl der Stellen, an denen der alte Profilpfad zwischengespeichert wird, **klein und vollständig erfassbar** — genau diese Stellen sind oben dokumentiert. Auf einem länger genutzten Rechner kommt eine nicht abschliessend bestimmbare Reihe weiterer Einträge hinzu: Listen zuletzt geöffneter Projekte in Entwicklungsumgebungen, Browsereinstellungen, andere Cloud-Synchronisationsprogramme, Verknüpfungen mit fest eingetragenen absoluten Zielpfaden, der Suchindex, geplante Aufgaben sowie jede weitere Anwendung, die irgendwo einen absoluten Pfad gespeichert hat.
+
+Die **Methode** bleibt dieselbe: Den zwischengespeicherten Verweis finden und neu schreiben. Realistisch nachzuweisen, dass wirklich **alle** Stellen gefunden wurden, ist jedoch kaum möglich. Genau deshalb unterstützt Microsoft dieses Vorgehen nicht offiziell und die meisten Anleitungen empfehlen stattdessen, ein neues Konto anzulegen und die Daten zu migrieren.
